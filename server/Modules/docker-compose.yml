@@ -1,0 +1,148 @@
+version: '3.7'
+
+services:
+  users-service:
+    container_name: users-service
+    build:
+      context: users
+      dockerfile: Dockerfile-local
+    volumes:
+      - './users:/usr/src/app'
+    ports:
+      - 5001:5000
+    depends_on:
+      - users-db
+    links:
+      - users-db
+
+  users-db:
+    container_name: users-db
+    command: mongod --port 27018
+    ports:
+      - 27018:27018
+    image: mongo:latest
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin
+      MONGO_INITDB_DATABASE: users
+    restart: always
+    volumes:
+      - ./users-db/users-db-init.js:/docker-entrypoint-initdb.d/users-db-init.js:ro
+
+  support-department-service:
+    container_name: support-department-service
+    build:
+      context: support-department
+      dockerfile: Dockerfile-local
+    volumes:
+      - './support-department:/usr/src/app'
+    ports:
+      - 5002:5000
+    depends_on:
+      - support-department-db
+    links:
+      - support-department-db
+
+  support-department-db:
+    container_name: support-department-db
+    command: mongod --port 27019
+    ports:
+      - 27019:27019
+    image: mongo:latest
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin
+      MONGO_INITDB_DATABASE: support-department
+    restart: always
+    volumes:
+      - ./support-department-db/support-department-db-init.js:/docker-entrypoint-initdb.d/support-department-db-init.js:ro
+
+  director-department-service:
+    container_name: director-department-service
+    build:
+      context: director-department
+      dockerfile: Dockerfile-local
+    volumes:
+      - './director-department:/usr/src/app'
+    ports:
+      - 5003:5000
+    depends_on:
+      - director-department-db
+    links:
+      - director-department-db
+
+  director-department-db:
+      container_name: director-department-db
+      ports:
+        - "3308:3306"
+      image: mysql/mysql-server:8.0
+      restart: always
+      volumes:
+        - ./docker-entrypoint-initdb.d/:/docker-entrypoint-initdb.d/
+
+  chatbots-service:
+    container_name: chatbots-service
+    build:
+      context: chatbots
+      dockerfile: Dockerfile-local
+    volumes:
+      - './chatbots:/usr/src/app'
+    ports:
+      - 5004:5000
+    depends_on:
+      - chatbots-db
+    links:
+      - chatbots-db
+
+  chatbots-db:
+    container_name: chatbots-db
+    command: mongod --port 27020
+    ports:
+      - 27020:27020
+    image: mongo:latest
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin
+      MONGO_INITDB_DATABASE: chatbots
+    restart: always
+    volumes:
+      - ./chatbots-db/chatbots-db-init.js:/docker-entrypoint-initdb.d/chatbots-db-init.js:ro
+
+  web-service:
+    container_name: web-service
+    build:
+      context: client
+      dockerfile: Dockerfile-local
+    volumes:
+      - './client:/usr/src/app'
+      - '/usr/src/app/node_modules'
+    ports:
+      - '3000:3000' # expose ports - HOST:CONTAINER
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    stdin_open: true
+    depends_on:
+      - users-service
+      - support-department-service
+      - director-department-service
+      - chatbots-service
+    links:
+      - users-service
+      - support-department-service
+      - director-department-service
+      - chatbots-service
+
+  nginx:
+    container_name: nginx
+    build: ./nginx/
+    restart: always
+    ports:
+      - 80:80
+    depends_on:
+      - web-service
+      - users-service
+      - support-department-service
+    links:
+      - web-service
+      - users-service
+      - support-department-service

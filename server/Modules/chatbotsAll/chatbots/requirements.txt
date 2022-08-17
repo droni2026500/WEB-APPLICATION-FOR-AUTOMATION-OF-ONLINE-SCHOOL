@@ -1,0 +1,4 @@
+Flask==2.1.2
+Flask_PyMongo==2.3.0
+Flask[async]
+Pyrogram==2.0.26
